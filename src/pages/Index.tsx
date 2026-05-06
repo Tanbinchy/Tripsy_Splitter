@@ -31,7 +31,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[image:var(--gradient-sand)]">
-      <header className="border-b border-border/60 bg-background/70 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-border/60 bg-background sticky top-0 z-10">
         <div className="container flex items-center justify-between py-5">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-[image:var(--gradient-warm)] flex items-center justify-center shadow-[var(--shadow-soft)]">

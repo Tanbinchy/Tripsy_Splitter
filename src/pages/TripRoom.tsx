@@ -103,7 +103,7 @@ const TripRoom = () => {
 
   return (
     <div className="min-h-screen bg-[image:var(--gradient-sand)]">
-      <header className="border-b border-border/60 bg-background/70 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-border/60 bg-background sticky top-0 z-10">
         <div className="container py-4">
           <Link
             to="/"
