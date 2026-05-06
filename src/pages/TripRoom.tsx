@@ -20,6 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { db, logActivity } from "@/lib/db";
 import { calculateBalances, settleDebts } from "@/lib/balances";
 import { exportTripPdf } from "@/lib/exportPdf";
@@ -200,22 +201,78 @@ const TripRoom = () => {
 
         <Tabs defaultValue="expenses">
           <TabsList className="flex w-full gap-4 overflow-x-auto justify-evenly md:overflow-visible md:gap-5">
-            <TabsTrigger value="expenses" className="flex-shrink-0">
-              <Receipt className="w-4 h-4 mr-1.5" />
-              <span>Expenses</span>
-            </TabsTrigger>
-            <TabsTrigger value="balances" className="flex-shrink-0">
-              <Scale className="w-4 h-4 mr-1.5" />
-              <span>Balances</span>
-            </TabsTrigger>
-            <TabsTrigger value="members" className="flex-shrink-0">
-              <Users className="w-4 h-4 mr-1.5" />
-              <span>Members</span>
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="flex-shrink-0">
-              <ActivityIcon className="w-4 h-4 mr-1.5" />
-              <span>Activity</span>
-            </TabsTrigger>
+            <div className="sm:hidden">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="expenses" className="flex-shrink-0">
+                    <Receipt className="w-4 h-4" />
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Expenses</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="hidden sm:block">
+              <TabsTrigger value="expenses" className="flex-shrink-0">
+                <Receipt className="w-4 h-4 mr-1.5" />
+                <span>Expenses</span>
+              </TabsTrigger>
+            </div>
+            <div className="sm:hidden">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="balances" className="flex-shrink-0">
+                    <Scale className="w-4 h-4" />
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Balances</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="hidden sm:block">
+              <TabsTrigger value="balances" className="flex-shrink-0">
+                <Scale className="w-4 h-4 mr-1.5" />
+                <span>Balances</span>
+              </TabsTrigger>
+            </div>
+            <div className="sm:hidden">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="members" className="flex-shrink-0">
+                    <Users className="w-4 h-4" />
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Members</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="hidden sm:block">
+              <TabsTrigger value="members" className="flex-shrink-0">
+                <Users className="w-4 h-4 mr-1.5" />
+                <span>Members</span>
+              </TabsTrigger>
+            </div>
+            <div className="sm:hidden">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="activity" className="flex-shrink-0">
+                    <ActivityIcon className="w-4 h-4" />
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Activity</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="hidden sm:block">
+              <TabsTrigger value="activity" className="flex-shrink-0">
+                <ActivityIcon className="w-4 h-4 mr-1.5" />
+                <span>Activity</span>
+              </TabsTrigger>
+            </div>
           </TabsList>
 
           <TabsContent value="expenses" className="space-y-3 mt-4">
