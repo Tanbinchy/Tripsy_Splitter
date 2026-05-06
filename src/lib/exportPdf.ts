@@ -45,13 +45,16 @@ export function exportTripPdf(
     head: [["Date", "Description", "Paid by", "Split", `Amount (${cur.trim()})`]],
     body: [...expenses]
       .sort((a, b) => a.createdAt - b.createdAt)
-      .map((e) => [
-        new Date(e.createdAt).toLocaleDateString(),
-        e.description,
-        nameOf(e.paidBy),
-        e.splitBetween.map(nameOf).join(", "),
-        e.amount.toFixed(2),
-      ]),
+      .map((e) => {
+        const payers = Array.isArray(e.paidBy) ? e.paidBy : [e.paidBy];
+        return [
+          new Date(e.createdAt).toLocaleDateString(),
+          e.description,
+          payers.map(nameOf).join(", "),
+          e.splitBetween.map(nameOf).join(", "),
+          e.amount.toFixed(2),
+        ];
+      }),
     headStyles: { fillColor: [196, 101, 74] },
     styles: { fontSize: 9 },
   });

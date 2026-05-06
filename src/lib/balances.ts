@@ -26,8 +26,16 @@ export function calculateBalances(
   );
 
   for (const e of expenses) {
-    const payer = map.get(e.paidBy);
-    if (payer) payer.paid += e.amount;
+    const payerIds = Array.isArray(e.paidBy) ? e.paidBy : [e.paidBy];
+    const paidAmounts: Record<string, number> = Array.isArray(e.paidBy)
+      ? e.paidByAmounts || Object.fromEntries(payerIds.map((id) => [id, e.amount / payerIds.length]))
+      : { [e.paidBy]: e.amount };
+
+    for (const [mid, paid] of Object.entries(paidAmounts)) {
+      const payer = map.get(mid);
+      if (payer) payer.paid += paid;
+    }
+
     const split = e.splitBetween.length || 1;
     const share = e.amount / split;
     for (const mid of e.splitBetween) {

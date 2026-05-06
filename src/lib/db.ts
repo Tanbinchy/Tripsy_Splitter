@@ -21,7 +21,8 @@ export interface Expense {
   tripId: string;
   description: string;
   amount: number;
-  paidBy: string; // member id
+  paidBy: string[]; // member ids
+  paidByAmounts?: Record<string, number>;
   splitBetween: string[]; // member ids
   createdAt: number;
 }

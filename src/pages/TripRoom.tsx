@@ -46,11 +46,11 @@ const TripRoom = () => {
     () =>
       id
         ? db.activities
-            .where("tripId")
-            .equals(id)
-            .reverse()
-            .sortBy("createdAt")
-            .then((a) => a.reverse())
+          .where("tripId")
+          .equals(id)
+          .reverse()
+          .sortBy("createdAt")
+          .then((a) => a.reverse())
         : [],
     [id]
   );
@@ -111,7 +111,7 @@ const TripRoom = () => {
           >
             <ArrowLeft className="w-4 h-4" /> All trips
           </Link>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">{trip.name}</h1>
               {trip.description && (
@@ -120,7 +120,7 @@ const TripRoom = () => {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex flex-wrap items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"
@@ -148,9 +148,9 @@ const TripRoom = () => {
                     "Settle up:",
                     ...(settlements.length
                       ? settlements.map(
-                          (s) =>
-                            `• ${s.fromName} → ${s.toName}: ${trip.currency}${s.amount.toFixed(2)}`
-                        )
+                        (s) =>
+                          `• ${s.fromName} → ${s.toName}: ${trip.currency}${s.amount.toFixed(2)}`
+                      )
                       : ["• All settled 🎉"]),
                   ];
                   const text = lines.join("\n");
@@ -177,10 +177,10 @@ const TripRoom = () => {
       </header>
 
       <main className="container py-6 pb-24">
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
           <Card className="p-4">
             <div className="text-xs text-muted-foreground">Total spent</div>
-            <div className="text-xl font-bold mt-1">
+            <div className="text-xl font-bold mt-1 break-words">
               {trip.currency}
               {total.toFixed(2)}
             </div>
@@ -198,22 +198,22 @@ const TripRoom = () => {
         </div>
 
         <Tabs defaultValue="expenses">
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="expenses">
-              <Receipt className="w-4 h-4 mr-1.5" />
-              Expenses
+          <TabsList className="flex w-full gap-4 overflow-x-auto justify-evenly md:overflow-visible md:gap-5">
+            <TabsTrigger value="expenses" className="flex-shrink-0">
+              <Receipt className="w-4 h-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Expenses</span>
             </TabsTrigger>
-            <TabsTrigger value="balances">
-              <Scale className="w-4 h-4 mr-1.5" />
-              Balances
+            <TabsTrigger value="balances" className="flex-shrink-0">
+              <Scale className="w-4 h-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Balances</span>
             </TabsTrigger>
-            <TabsTrigger value="members">
-              <Users className="w-4 h-4 mr-1.5" />
-              Members
+            <TabsTrigger value="members" className="flex-shrink-0">
+              <Users className="w-4 h-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Members</span>
             </TabsTrigger>
-            <TabsTrigger value="activity">
-              <ActivityIcon className="w-4 h-4 mr-1.5" />
-              Activity
+            <TabsTrigger value="activity" className="flex-shrink-0">
+              <ActivityIcon className="w-4 h-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Activity</span>
             </TabsTrigger>
           </TabsList>
 
@@ -225,32 +225,35 @@ const TripRoom = () => {
             ) : (
               [...expenses]
                 .sort((a, b) => b.createdAt - a.createdAt)
-                .map((e) => (
-                  <Card key={e.id} className="p-4 flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center font-semibold text-secondary-foreground">
-                      {memberName(e.paidBy).charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{e.description}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {memberName(e.paidBy)} paid · split{" "}
-                        {e.splitBetween.length}
+                .map((e) => {
+                  const payerIds = Array.isArray(e.paidBy) ? e.paidBy : [e.paidBy];
+                  const payerLabel = payerIds.map(memberName).join(", ");
+                  return (
+                    <Card key={e.id} className="p-4 min-h-[88px] flex flex-row items-center justify-between">
+                      <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center font-semibold text-secondary-foreground">
+                        {memberName(payerIds[0]).charAt(0).toUpperCase()}
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold">
-                        {trip.currency}
-                        {e.amount.toFixed(2)}
+                      <div className="flex-1 min-w-0 pl-4">
+                        <div className="font-medium truncate">{e.description}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {payerLabel} paid · split {e.splitBetween.length}
+                        </div>
                       </div>
-                      <button
-                        onClick={() => deleteExpense(e.id, e.description)}
-                        className="text-xs text-muted-foreground hover:text-destructive"
-                      >
-                        delete
-                      </button>
-                    </div>
-                  </Card>
-                ))
+                      <div className="text-right">
+                        <div className="font-semibold">
+                          {trip.currency}
+                          {e.amount.toFixed(2)}
+                        </div>
+                        <button
+                          onClick={() => deleteExpense(e.id, e.description)}
+                          className="text-xs text-muted-foreground hover:text-destructive"
+                        >
+                          delete
+                        </button>
+                      </div>
+                    </Card>
+                  );
+                })
             )}
           </TabsContent>
 
@@ -280,13 +283,12 @@ const TripRoom = () => {
                           </div>
                         </div>
                         <div
-                          className={`font-semibold ${
-                            b.net > 0.01
-                              ? "text-success"
-                              : b.net < -0.01
+                          className={`font-semibold ${b.net > 0.01
+                            ? "text-success"
+                            : b.net < -0.01
                               ? "text-destructive"
                               : "text-muted-foreground"
-                          }`}
+                            }`}
                         >
                           {b.net > 0 ? "+" : ""}
                           {trip.currency}
@@ -344,10 +346,10 @@ const TripRoom = () => {
                   <div className="flex-1 font-medium">{m.name}</div>
                   <button
                     onClick={async () => {
-                      const used = expenses?.some(
-                        (e) =>
-                          e.paidBy === m.id || e.splitBetween.includes(m.id)
-                      );
+                      const used = expenses?.some((e) => {
+                        const payerIds = Array.isArray(e.paidBy) ? e.paidBy : [e.paidBy];
+                        return payerIds.includes(m.id) || e.splitBetween.includes(m.id);
+                      });
                       if (used) {
                         toast.error("Member is in expenses, can't remove");
                         return;
