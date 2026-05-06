@@ -24,7 +24,7 @@ export const CreateTripDialog = ({ open, onOpenChange }: Props) => {
   const nav = useNavigate();
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
-  const [currency, setCurrency] = useState("$");
+  const [currency, setCurrency] = useState("৳");
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,11 +81,10 @@ export const CreateTripDialog = ({ open, onOpenChange }: Props) => {
                     key={c}
                     type="button"
                     onClick={() => setCurrency(c)}
-                    className={`w-12 h-10 rounded-lg border text-base font-medium transition-[var(--transition-smooth)] ${
-                      currency === c
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background border-border hover:border-primary/50"
-                    }`}
+                    className={`w-12 h-10 rounded-lg border text-base font-medium transition-[var(--transition-smooth)] ${currency === c
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border hover:border-primary/50"
+                      }`}
                   >
                     {c}
                   </button>
