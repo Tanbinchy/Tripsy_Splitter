@@ -201,20 +201,20 @@ const TripRoom = () => {
         <Tabs defaultValue="expenses">
           <TabsList className="flex w-full gap-4 overflow-x-auto justify-evenly md:overflow-visible md:gap-5">
             <TabsTrigger value="expenses" className="flex-shrink-0">
-              <Receipt className="w-4 h-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Expenses</span>
+              <Receipt className="w-4 h-4 mr-1.5" />
+              <span>Expenses</span>
             </TabsTrigger>
             <TabsTrigger value="balances" className="flex-shrink-0">
-              <Scale className="w-4 h-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Balances</span>
+              <Scale className="w-4 h-4 mr-1.5" />
+              <span>Balances</span>
             </TabsTrigger>
             <TabsTrigger value="members" className="flex-shrink-0">
-              <Users className="w-4 h-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Members</span>
+              <Users className="w-4 h-4 mr-1.5" />
+              <span>Members</span>
             </TabsTrigger>
             <TabsTrigger value="activity" className="flex-shrink-0">
-              <ActivityIcon className="w-4 h-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Activity</span>
+              <ActivityIcon className="w-4 h-4 mr-1.5" />
+              <span>Activity</span>
             </TabsTrigger>
           </TabsList>
 
