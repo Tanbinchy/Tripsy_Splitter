@@ -69,6 +69,7 @@ const TripRoom = () => {
     members?.find((m) => m.id === mid)?.name || "Unknown";
 
   const deleteExpense = async (eid: string, desc: string) => {
+    if (!confirm(`Delete expense "${desc}"?`)) return;
     await db.expenses.delete(eid);
     if (id) await logActivity(id, `Removed "${desc}"`);
   };
@@ -338,31 +339,35 @@ const TripRoom = () => {
                 No members yet.
               </Card>
             ) : (
-              members.map((m) => (
-                <Card key={m.id} className="p-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-primary-foreground font-semibold">
-                    {m.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 font-medium">{m.name}</div>
-                  <button
-                    onClick={async () => {
-                      const used = expenses?.some((e) => {
-                        const payerIds = Array.isArray(e.paidBy) ? e.paidBy : [e.paidBy];
-                        return payerIds.includes(m.id) || e.splitBetween.includes(m.id);
-                      });
-                      if (used) {
-                        toast.error("Member is in expenses, can't remove");
-                        return;
-                      }
-                      await db.members.delete(m.id);
-                      if (id) await logActivity(id, `Removed ${m.name}`);
-                    }}
-                    className="text-xs text-muted-foreground hover:text-destructive px-2"
-                  >
-                    remove
-                  </button>
-                </Card>
-              ))
+              members.map((m) => {
+                const isUsedInExpenses = expenses?.some((e) => {
+                  const payerIds = Array.isArray(e.paidBy) ? e.paidBy : [e.paidBy];
+                  return payerIds.includes(m.id) || e.splitBetween.includes(m.id);
+                });
+                return (
+                  <Card key={m.id} className="p-3 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-primary-foreground font-semibold">
+                      {m.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 font-medium">{m.name}</div>
+                    {isUsedInExpenses ? (
+                      <span className="text-xs text-muted-foreground px-2">
+                        in expenses
+                      </span>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          await db.members.delete(m.id);
+                          if (id) await logActivity(id, `Removed ${m.name}`);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-destructive px-2"
+                      >
+                        remove
+                      </button>
+                    )}
+                  </Card>
+                );
+              })
             )}
             <Button
               variant="outline"
