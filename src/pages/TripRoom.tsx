@@ -524,7 +524,7 @@ const TripRoom = () => {
 
       <main className="container py-3 sm:py-6 pb-24">
         {/* Stats: stacked on mobile → side by side label+value, grid on sm+ */}
-        <div className="grid grid-cols-3 gap-2 mb-4 sm:gap-3 sm:mb-6">
+        <div className="grid grid-cols-[2fr_1fr_1fr] gap-2 mb-4 sm:grid-cols-3 sm:gap-3 sm:mb-6">
           <Card className="px-3 py-2 sm:p-4 flex flex-col sm:block">
             <div className="text-xs text-muted-foreground">Total spent</div>
             <div className="text-sm sm:text-xl font-bold mt-0.5 sm:mt-1 break-words leading-tight">
