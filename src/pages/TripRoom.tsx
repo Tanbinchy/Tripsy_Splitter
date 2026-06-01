@@ -787,7 +787,7 @@ const TripRoom = () => {
                       <div className="flex-1 min-w-0 pl-4">
                         <div className="font-medium truncate">{e.description}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {payerLabel} paid · split {e.splitBetween.length}
+                          {payerLabel} paid | split {e.splitBetween.length}
                         </div>
                       </div>
                       <div className="text-right">
@@ -841,7 +841,7 @@ const TripRoom = () => {
                           <div className="font-medium">{b.name}</div>
                           <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="text-primary font-medium">paid {trip.currency}{b.paid.toFixed(2)}</span>
-                            <span className="text-muted-foreground/30">·</span>
+                            <span className="text-muted-foreground/30">|</span>
                             <span>share {trip.currency}{b.owes.toFixed(2)}</span>
                           </div>
                         </div>
@@ -949,26 +949,27 @@ const TripRoom = () => {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 hover:bg-muted"
+                          className="w-8 h-8 sm:w-9 sm:h-9"
                           title="Rename member"
                           onClick={() => setEditingMember(m)}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        {isUsedInExpenses ? (
-                          <span className="text-[10px] sm:text-xs text-muted-foreground px-2 py-1 bg-muted/40 rounded">
-                            in expenses
-                          </span>
-                        ) : (
-                          <button
+                        {isUsedInExpenses ? null : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="w-8 h-8 sm:w-9 sm:h-9"
+                            title="Remove member"
                             onClick={async () => {
+                              if (!confirm(`Are you sure you want to remove "${m.name}"?`)) return;
                               await db.members.delete(m.id);
                               if (id) await logActivity(id, `Removed ${m.name}`);
                             }}
-                            className="text-[10px] sm:text-xs text-muted-foreground hover:text-destructive px-2 py-1 hover:bg-destructive/5 rounded transition-colors"
                           >
-                            remove
-                          </button>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </div>
