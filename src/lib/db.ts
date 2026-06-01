@@ -6,7 +6,10 @@ export interface Trip {
   description?: string;
   currency: string;
   createdAt: number;
+  updatedAt?: number;
+  deletedAt?: number;
   isOnline: boolean;
+  isPinned?: boolean;
 }
 
 export interface Member {
@@ -14,6 +17,7 @@ export interface Member {
   tripId: string;
   name: string;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface Expense {
@@ -48,6 +52,12 @@ class TripDB extends Dexie {
       expenses: "id, tripId, createdAt",
       activities: "id, tripId, createdAt",
     });
+    this.version(2).stores({
+      trips: "id, createdAt, updatedAt, deletedAt",
+      members: "id, tripId, updatedAt",
+      expenses: "id, tripId, createdAt",
+      activities: "id, tripId, createdAt",
+    });
   }
 }
 
@@ -63,4 +73,34 @@ export async function logActivity(tripId: string, message: string) {
     message,
     createdAt: Date.now(),
   });
+}
+
+export async function moveTripToTrash(tripId: string) {
+  await db.trips.update(tripId, {
+    deletedAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+}
+
+export async function restoreTripFromTrash(tripId: string) {
+  await db.trips.where("id").equals(tripId).modify((trip) => {
+    delete trip.deletedAt;
+    trip.updatedAt = Date.now();
+  });
+}
+
+export async function deleteTripForever(tripId: string) {
+  await db.transaction(
+    "rw",
+    db.trips,
+    db.members,
+    db.expenses,
+    db.activities,
+    async () => {
+      await db.trips.delete(tripId);
+      await db.members.where("tripId").equals(tripId).delete();
+      await db.expenses.where("tripId").equals(tripId).delete();
+      await db.activities.where("tripId").equals(tripId).delete();
+    }
+  );
 }

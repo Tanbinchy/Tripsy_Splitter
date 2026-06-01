@@ -3,6 +3,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft,
+  Home,
+  Pencil,
   Plus,
   Users,
   Receipt,
@@ -10,7 +12,9 @@ import {
   Trash2,
   Scale,
   FileDown,
+  RotateCcw,
   Share2,
+  Pin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,18 +25,106 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { db, logActivity } from "@/lib/db";
+import {
+  db,
+  deleteTripForever,
+  logActivity,
+  moveTripToTrash,
+  restoreTripFromTrash,
+  type Member,
+  type Expense,
+} from "@/lib/db";
 import { calculateBalances, settleDebts } from "@/lib/balances";
 import { exportTripPdf } from "@/lib/exportPdf";
 import { AddMemberDialog } from "@/components/AddMemberDialog";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { EditMemberDialog } from "@/components/EditMemberDialog";
+import { EditTripDialog } from "@/components/EditTripDialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+interface ActivityCategory {
+  colorClass: string;
+  borderClass: string;
+  bgClass: string;
+  dotClass: string;
+}
+
+const getActivityCategory = (message: string): ActivityCategory => {
+  const lower = message.toLowerCase();
+
+  // 1. Deletions (Red)
+  if (
+    lower.includes("removed") ||
+    lower.includes("deleted") ||
+    (lower.includes("recycle bin") && !lower.includes("restored"))
+  ) {
+    return {
+      colorClass: "text-red-600 dark:text-red-400 font-medium",
+      borderClass: "border-red-500/20 dark:border-red-500/30",
+      bgClass: "bg-red-500/[0.02] dark:bg-red-500/[0.05]",
+      dotClass: "bg-red-500 animate-pulse",
+    };
+  }
+
+  // 2. Additions / Creations (Emerald Green)
+  if (
+    lower.includes("created") ||
+    lower.includes("joined") ||
+    lower.includes("added")
+  ) {
+    return {
+      colorClass: "text-emerald-600 dark:text-emerald-400 font-medium",
+      borderClass: "border-emerald-500/20 dark:border-emerald-500/30",
+      bgClass: "bg-emerald-500/[0.02] dark:bg-emerald-500/[0.05]",
+      dotClass: "bg-emerald-500",
+    };
+  }
+
+  // 3. Modifications / Renames (Blue)
+  if (
+    lower.includes("updated") ||
+    lower.includes("renamed")
+  ) {
+    return {
+      colorClass: "text-blue-600 dark:text-blue-400 font-medium",
+      borderClass: "border-blue-500/20 dark:border-blue-500/30",
+      bgClass: "bg-blue-500/[0.02] dark:bg-blue-500/[0.05]",
+      dotClass: "bg-blue-500",
+    };
+  }
+
+  // 4. Status updates / Pinned / Restored (Amber)
+  if (
+    lower.includes("pinned") ||
+    lower.includes("unpinned") ||
+    lower.includes("restored")
+  ) {
+    return {
+      colorClass: "text-amber-600 dark:text-amber-400 font-medium",
+      borderClass: "border-amber-500/20 dark:border-amber-500/30",
+      bgClass: "bg-amber-500/[0.02] dark:bg-amber-500/[0.05]",
+      dotClass: "bg-amber-500",
+    };
+  }
+
+  // 5. Default
+  return {
+    colorClass: "",
+    borderClass: "border-border",
+    bgClass: "bg-card",
+    dotClass: "bg-primary",
+  };
+};
 
 const TripRoom = () => {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const [memberOpen, setMemberOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [editTripOpen, setEditTripOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const trip = useLiveQuery(() => (id ? db.trips.get(id) : undefined), [id]);
   const members = useLiveQuery(
@@ -75,23 +167,44 @@ const TripRoom = () => {
     if (id) await logActivity(id, `Removed "${desc}"`);
   };
 
-  const deleteTrip = async () => {
+  const togglePinCurrentTrip = async () => {
+    if (!id || !trip) return;
+    const nextPinned = !trip.isPinned;
+    await db.trips.update(id, {
+      isPinned: nextPinned,
+      updatedAt: Date.now(),
+    });
+    await logActivity(id, nextPinned ? "Pinned trip" : "Unpinned trip");
+    toast.success(nextPinned ? "Trip pinned" : "Trip unpinned");
+  };
+
+  const moveCurrentTripToTrash = async () => {
+    if (!id || !trip) return;
+    if (!confirm(`Move "${trip.name}" to the recycle bin?`)) return;
+    await moveTripToTrash(id);
+    await logActivity(id, "Moved trip to recycle bin");
+    toast.success("Trip moved to recycle bin");
+    nav("/");
+  };
+
+  const restoreCurrentTrip = async () => {
     if (!id) return;
-    if (!confirm("Delete this trip and all its data?")) return;
-    await db.transaction(
-      "rw",
-      db.trips,
-      db.members,
-      db.expenses,
-      db.activities,
-      async () => {
-        await db.trips.delete(id);
-        await db.members.where("tripId").equals(id).delete();
-        await db.expenses.where("tripId").equals(id).delete();
-        await db.activities.where("tripId").equals(id).delete();
-      }
-    );
-    toast.success("Trip deleted");
+    await restoreTripFromTrash(id);
+    await logActivity(id, "Restored trip from recycle bin");
+    toast.success("Trip restored");
+  };
+
+  const permanentlyDeleteCurrentTrip = async () => {
+    if (!id || !trip) return;
+    if (
+      !confirm(
+        `Permanently delete "${trip.name}" and all of its members, expenses, and activity?`
+      )
+    ) {
+      return;
+    }
+    await deleteTripForever(id);
+    toast.success("Trip permanently deleted");
     nav("/");
   };
 
@@ -99,6 +212,61 @@ const TripRoom = () => {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
         Loading...
+      </div>
+    );
+  }
+
+  if (trip.deletedAt) {
+    return (
+      <div className="min-h-screen bg-[image:var(--gradient-sand)]">
+        <header className="border-b border-border/60 bg-background sticky top-0 z-10">
+          <div className="container py-4">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4" /> All trips
+            </Link>
+          </div>
+        </header>
+        <main className="container flex min-h-[70vh] items-center justify-center py-10">
+          <Card className="w-full max-w-xl p-8 text-center">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+              <Trash2 className="h-7 w-7" />
+            </div>
+            <h1 className="text-2xl font-bold">
+              This trip is in the recycle bin
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              Restore it to edit members and expenses again.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Deleted {new Date(trip.deletedAt).toLocaleString()}
+            </p>
+            <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button type="button" onClick={restoreCurrentTrip}>
+                <RotateCcw className="h-4 w-4" />
+                Restore trip
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => nav("/")}
+              >
+                <Home className="h-4 w-4" />
+                Back home
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={permanentlyDeleteCurrentTrip}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete forever
+              </Button>
+            </div>
+          </Card>
+        </main>
       </div>
     );
   }
@@ -469,6 +637,24 @@ const TripRoom = () => {
                 variant="ghost"
                 size="icon"
                 className="w-8 h-8 sm:w-9 sm:h-9"
+                title={trip.isPinned ? "Unpin trip" : "Pin trip"}
+                onClick={togglePinCurrentTrip}
+              >
+                <Pin className={`w-4 h-4 ${trip.isPinned ? "fill-primary text-primary" : ""}`} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 sm:w-9 sm:h-9"
+                title="Edit trip"
+                onClick={() => setEditTripOpen(true)}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 sm:w-9 sm:h-9"
                 title="Export PDF"
                 onClick={() => {
                   if (!expenses?.length) {
@@ -514,7 +700,13 @@ const TripRoom = () => {
               >
                 <Share2 className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="w-8 h-8 sm:w-9 sm:h-9" onClick={deleteTrip}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 sm:w-9 sm:h-9"
+                title="Move to recycle bin"
+                onClick={moveCurrentTripToTrash}
+              >
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
@@ -603,12 +795,24 @@ const TripRoom = () => {
                           {trip.currency}
                           {e.amount.toFixed(2)}
                         </div>
-                        <button
-                          onClick={() => deleteExpense(e.id, e.description)}
-                          className="text-xs text-muted-foreground hover:text-destructive"
-                        >
-                          delete
-                        </button>
+                        <div className="flex justify-end gap-2 mt-1">
+                          <button
+                            onClick={() => {
+                              setEditingExpense(e);
+                              setExpenseOpen(true);
+                            }}
+                            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            edit
+                          </button>
+                          <span className="text-xs text-muted-foreground/30">|</span>
+                          <button
+                            onClick={() => deleteExpense(e.id, e.description)}
+                            className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            delete
+                          </button>
+                        </div>
                       </div>
                     </Card>
                   );
@@ -635,10 +839,10 @@ const TripRoom = () => {
                       >
                         <div>
                           <div className="font-medium">{b.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            paid {trip.currency}
-                            {b.paid.toFixed(2)} · share {trip.currency}
-                            {b.owes.toFixed(2)}
+                          <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="text-primary font-medium">paid {trip.currency}{b.paid.toFixed(2)}</span>
+                            <span className="text-muted-foreground/30">·</span>
+                            <span>share {trip.currency}{b.owes.toFixed(2)}</span>
                           </div>
                         </div>
                         <div
@@ -702,27 +906,72 @@ const TripRoom = () => {
                   const payerIds = Array.isArray(e.paidBy) ? e.paidBy : [e.paidBy];
                   return payerIds.includes(m.id) || e.splitBetween.includes(m.id);
                 });
+                const balance = balances.find((b) => b.memberId === m.id) || {
+                  paid: 0,
+                  owes: 0,
+                  net: 0,
+                };
                 return (
-                  <Card key={m.id} className="p-3 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-primary-foreground font-semibold">
-                      {m.name.charAt(0).toUpperCase()}
+                  <Card key={m.id} className="p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-primary-foreground font-semibold shrink-0 shadow-sm text-sm sm:text-base">
+                        {m.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-sm sm:text-base truncate leading-tight">{m.name}</div>
+                        <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-primary font-medium">Paid: <strong className="font-semibold text-primary">{trip.currency}{balance.paid.toFixed(2)}</strong></span>
+                          <span className="text-muted-foreground/30">|</span>
+                          <span>Share: <strong className="font-medium text-foreground">{trip.currency}{balance.owes.toFixed(2)}</strong></span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 font-medium">{m.name}</div>
-                    {isUsedInExpenses ? (
-                      <span className="text-xs text-muted-foreground px-2">
-                        in expenses
-                      </span>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          await db.members.delete(m.id);
-                          if (id) await logActivity(id, `Removed ${m.name}`);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-destructive px-2"
-                      >
-                        remove
-                      </button>
-                    )}
+                    
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                      <div className="text-right">
+                        <div className="text-[9px] sm:text-[10px] text-muted-foreground leading-none">Net</div>
+                        <div
+                          className={`font-semibold text-xs sm:text-sm mt-0.5 sm:mt-1 ${
+                            balance.net > 0.01
+                              ? "text-success"
+                              : balance.net < -0.01
+                              ? "text-destructive"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {balance.net > 0.01 ? "+" : balance.net < -0.01 ? "-" : ""}
+                          {trip.currency}{Math.abs(balance.net).toFixed(2)}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 sm:gap-1.5 border-l border-border/50 pl-2 sm:pl-3">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-muted"
+                          title="Rename member"
+                          onClick={() => setEditingMember(m)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {isUsedInExpenses ? (
+                          <span className="text-[10px] sm:text-xs text-muted-foreground px-2 py-1 bg-muted/40 rounded">
+                            in expenses
+                          </span>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              await db.members.delete(m.id);
+                              if (id) await logActivity(id, `Removed ${m.name}`);
+                            }}
+                            className="text-[10px] sm:text-xs text-muted-foreground hover:text-destructive px-2 py-1 hover:bg-destructive/5 rounded transition-colors"
+                          >
+                            remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </Card>
                 );
               })
@@ -742,17 +991,39 @@ const TripRoom = () => {
                 No activity yet.
               </Card>
             ) : (
-              activities.map((a) => (
-                <Card key={a.id} className="p-3 flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                  <div className="flex-1">
-                    <div className="text-sm">{a.message}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(a.createdAt).toLocaleString()}
+              activities.map((a) => {
+                const category = getActivityCategory(a.message);
+                return (
+                  <Card
+                    key={a.id}
+                    className={cn(
+                      "p-3 flex items-start gap-3 transition-colors",
+                      category.borderClass,
+                      category.bgClass
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-2 h-2 rounded-full mt-2 shrink-0 transition-colors",
+                        category.dotClass
+                      )}
+                    />
+                    <div className="flex-1">
+                      <div
+                        className={cn(
+                          "text-sm transition-colors",
+                          category.colorClass
+                        )}
+                      >
+                        {a.message}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(a.createdAt).toLocaleString()}
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))
+                  </Card>
+                );
+              })
             )}
           </TabsContent>
         </Tabs>
@@ -794,7 +1065,23 @@ const TripRoom = () => {
             currency={trip.currency}
             members={members || []}
             open={expenseOpen}
-            onOpenChange={setExpenseOpen}
+            onOpenChange={(nextOpen) => {
+              setExpenseOpen(nextOpen);
+              if (!nextOpen) setEditingExpense(null);
+            }}
+            editingExpense={editingExpense}
+          />
+          <EditTripDialog
+            trip={trip}
+            open={editTripOpen}
+            onOpenChange={setEditTripOpen}
+          />
+          <EditMemberDialog
+            member={editingMember}
+            open={Boolean(editingMember)}
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen) setEditingMember(null);
+            }}
           />
         </>
       )}

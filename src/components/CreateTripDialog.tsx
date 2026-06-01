@@ -12,19 +12,18 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { db, logActivity, uid } from "@/lib/db";
+import { CURRENCIES } from "@/lib/currency";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const CURRENCIES = ["৳", "$", "€", "£", "₹", "¥"];
-
 export const CreateTripDialog = ({ open, onOpenChange }: Props) => {
   const nav = useNavigate();
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
-  const [currency, setCurrency] = useState("৳");
+  const [currency, setCurrency] = useState(CURRENCIES[0]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -9,7 +9,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { db, logActivity, uid, type Member } from "@/lib/db";
+import { db, logActivity, uid, type Member, type Expense } from "@/lib/db";
+import { toast } from "sonner";
 
 interface Props {
   tripId: string;
@@ -17,6 +18,7 @@ interface Props {
   members: Member[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editingExpense?: Expense | null;
 }
 
 interface PayerRow {
@@ -30,6 +32,7 @@ export const AddExpenseDialog = ({
   members,
   open,
   onOpenChange,
+  editingExpense,
 }: Props) => {
   const [desc, setDesc] = useState("");
   const [amount, setAmount] = useState("");
@@ -39,17 +42,40 @@ export const AddExpenseDialog = ({
 
   useEffect(() => {
     if (open) {
-      setDesc("");
-      setAmount("");
       setError("");
-      setSplit(members.map((m) => m.id));
-      setPayers(
-        members.length
-          ? [{ memberId: members[0].id, amount: "" }]
-          : []
-      );
+      if (editingExpense) {
+        setDesc(editingExpense.description);
+        setAmount(editingExpense.amount.toString());
+        setSplit(editingExpense.splitBetween || []);
+        
+        if (editingExpense.paidByAmounts) {
+          const payerRows = Object.entries(editingExpense.paidByAmounts).map(
+            ([memberId, amt]) => ({
+              memberId,
+              amount: amt.toString(),
+            })
+          );
+          setPayers(payerRows);
+        } else {
+          const singlePayerId = editingExpense.paidBy[0];
+          setPayers(
+            singlePayerId
+              ? [{ memberId: singlePayerId, amount: editingExpense.amount.toString() }]
+              : []
+          );
+        }
+      } else {
+        setDesc("");
+        setAmount("");
+        setSplit(members.map((m) => m.id));
+        setPayers(
+          members.length
+            ? [{ memberId: members[0].id, amount: "" }]
+            : []
+        );
+      }
     }
-  }, [open, members]);
+  }, [open, members, editingExpense]);
 
   const toggleSplit = (id: string) =>
     setSplit((s) =>
@@ -152,27 +178,58 @@ export const AddExpenseDialog = ({
     );
     const finalDesc = desc.trim() || "Expense";
 
-    await db.expenses.add({
-      id: uid(),
-      tripId,
-      description: finalDesc,
-      amount: totalAmount,
-      paidBy,
-      paidByAmounts,
-      splitBetween: split,
-      createdAt: Date.now(),
-    });
+    if (editingExpense) {
+      await db.expenses.update(editingExpense.id, {
+        description: finalDesc,
+        amount: totalAmount,
+        paidBy,
+        paidByAmounts,
+        splitBetween: split,
+      });
 
-    const payerNames = normalized
-      .map((payer) =>
-        members.find((m) => m.id === payer.memberId)?.name || "Someone"
-      )
-      .join(", ");
+      const payerNames = normalized
+        .map((payer) =>
+          members.find((m) => m.id === payer.memberId)?.name || "Someone"
+        )
+        .join(", ");
 
-    await logActivity(
-      tripId,
-      `${payerNames} added "${finalDesc}" · ${currency}${totalAmount.toFixed(2)}`
-    );
+      if (
+        finalDesc !== editingExpense.description ||
+        totalAmount !== editingExpense.amount ||
+        JSON.stringify(paidBy) !== JSON.stringify(editingExpense.paidBy) ||
+        JSON.stringify(paidByAmounts) !== JSON.stringify(editingExpense.paidByAmounts) ||
+        JSON.stringify(split) !== JSON.stringify(editingExpense.splitBetween)
+      ) {
+        await logActivity(
+          tripId,
+          `${payerNames} updated "${finalDesc}" · ${currency}${totalAmount.toFixed(2)}`
+        );
+      }
+      toast.success("Expense updated");
+    } else {
+      await db.expenses.add({
+        id: uid(),
+        tripId,
+        description: finalDesc,
+        amount: totalAmount,
+        paidBy,
+        paidByAmounts,
+        splitBetween: split,
+        createdAt: Date.now(),
+      });
+
+      const payerNames = normalized
+        .map((payer) =>
+          members.find((m) => m.id === payer.memberId)?.name || "Someone"
+        )
+        .join(", ");
+
+      await logActivity(
+        tripId,
+        `${payerNames} added "${finalDesc}" · ${currency}${totalAmount.toFixed(2)}`
+      );
+      toast.success("Expense added");
+    }
 
     onOpenChange(false);
   };
@@ -182,7 +239,9 @@ export const AddExpenseDialog = ({
       <DialogContent className="max-h-[90vh] overflow-y-auto max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-4xl w-full">
         <form onSubmit={submit}>
           <DialogHeader className="pb-6">
-            <DialogTitle className="text-xl font-semibold">Add Expense</DialogTitle>
+            <DialogTitle className="text-xl font-semibold font-bold">
+              {editingExpense ? "Edit Expense" : "Add Expense"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -341,7 +400,7 @@ export const AddExpenseDialog = ({
               Cancel
             </Button>
             <Button type="submit" className="h-10 px-6">
-              Save Expense
+              {editingExpense ? "Save changes" : "Save Expense"}
             </Button>
           </DialogFooter>
         </form>
